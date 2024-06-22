@@ -77,25 +77,48 @@ const Dashboard = () => {
 
   const sendMessage = async (e) => {
     setMessage('')
+    if (!messages?.conversationId && messages?.receiver?.receiverId) {
+        // Check if a conversation already exists
+        const existingConversation = await fetch(`http://localhost:8080/api/conversation?senderId=${user?.id}&receiverId=${messages?.receiver?.receiverId}`);
+        const existingConversationData = await existingConversation.json();
+        if (existingConversationData) {
+            setMessages({ messages: existingConversationData, receiver: messages?.receiver, conversationId: existingConversationData[0].conversationId });
+        } else {
+            // If no conversation exists, create a new one
+            const newConversation = await fetch(`http://localhost:8080/api/conversation`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    senderId: user?.id,
+                    receiverId: messages?.receiver?.receiverId
+                })
+            });
+            const newConversationData = await newConversation.json();
+            setMessages({ messages: [], receiver: messages?.receiver, conversationId: newConversationData.conversationId });
+        }
+    }
     socket?.emit('sendMessage', {
-      senderId: user?.id,
-      receiverId: messages?.receiver?.receiverId,
-      message,
-      conversationId: messages?.conversationId
+        senderId: user?.id,
+        receiverId: messages?.receiver?.receiverId,
+        message,
+        conversationId: messages?.conversationId
     });
     const res = await fetch(`http://localhost:8080/api/message`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        conversationId: messages?.conversationId,
-        senderId: user?.id,
-        message,
-        receiverId: messages?.receiver?.receiverId
-      })
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            conversationId: messages?.conversationId,
+            senderId: user?.id,
+            message,
+            receiverId: messages?.receiver?.receiverId
+        })
     });
-  }
+}
+
 
 return (
   <div className='flex'>
