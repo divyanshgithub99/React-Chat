@@ -1,37 +1,31 @@
 import { useEffect, useRef, useState } from 'react'
 import { io } from 'socket.io-client'
-import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
   const [user, setUser] = useState(JSON.parse(localStorage.getItem('user:detail')))
   const [conversations, setConversations] = useState([])
-  const [messages, setMessages] = useState({ messages: [] })
+  const [messages, setMessages] = useState({})
   const [message, setMessage] = useState('')
   const [users, setUsers] = useState([])
   const [socket, setSocket] = useState(null)
   const [selectedUserId, setSelectedUserId] = useState(null)
   const messageRef = useRef(null)
 
-  const navigate = useNavigate();
-
-
   useEffect(() => {
     setSocket(io('http://localhost:8000'))
   }, [])
 
   useEffect(() => {
-    if (socket) {
-      socket.emit('addUser', user?.id);
-      socket.on('getUsers', users => {
-        console.log('activeUsers :>> ', users);
-      })
-      socket.on('getMessage', data => {
-        setMessages(prev => ({
-          ...prev,
-          messages: [...(prev.messages || []), { user: data.user, message: data.message }]
-        }))
-      })
-    }
+    socket?.emit('addUser', user?.id);
+    socket?.on('getUsers', users => {
+      console.log('activeUsers :>> ', users);
+    })
+    socket?.on('getMessage', data => {
+      setMessages(prev => ({
+        ...prev,
+        messages: [...prev.messages, { user: data.user, message: data.message }]
+      }))
+    })
   }, [socket])
 
   useEffect(() => {
@@ -103,14 +97,6 @@ const Dashboard = () => {
     });
   }
 
-  const handleLogout = async () => {
-    console.log("div...")
-    await localStorage.removeItem('user:detail')
-    await localStorage.removeItem('user:token')
-    navigate('/users/sign_in')
-    alert('Logout Successfully!')
-  }
-
 return (
   <div className='flex'>
     <div className='w-1/4 h-screen bg-gray-800 text-white overflow-y-auto'>
@@ -121,7 +107,6 @@ return (
         <div className='ml-4'>
 						<h3 className='text-2xl'>{user?.fullName}</h3>
 						<p className='text-lg font-light'>My Account</p>
-            <button onClick={handleLogout} className='mt-2 p-2 bg-red-500 text-white rounded-lg'>Logout</button>
         </div>
       </div>
       <hr className="border-gray-600" />
