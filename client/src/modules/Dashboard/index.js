@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { io } from 'socket.io-client'
+import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
   const [user, setUser] = useState(JSON.parse(localStorage.getItem('user:detail')))
@@ -10,6 +11,9 @@ const Dashboard = () => {
   const [socket, setSocket] = useState(null)
   const [selectedUserId, setSelectedUserId] = useState(null)
   const messageRef = useRef(null)
+
+  const navigate = useNavigate();
+
 
   useEffect(() => {
     setSocket(io('http://localhost:8000'))
@@ -124,7 +128,12 @@ useEffect(() => {
     }));
 };
 
-
+const handleLogout = async() => {
+ await localStorage.removeItem('user:token')
+ await localStorage.removeItem('user:detail')
+ alert('Logout Successfully!')
+  navigate('/users/sign_in')
+}
 
 return (
   <div className='flex'>
@@ -136,6 +145,7 @@ return (
         <div className='ml-4'>
 						<h3 className='text-2xl'>{user?.fullName}</h3>
 						<p className='text-lg font-light'>My Account</p>
+            <button onClick={handleLogout} className='mt-2 p-2 bg-red-500 text-white rounded-lg'>Logout</button>
         </div>
       </div>
       <hr className="border-gray-600" />
