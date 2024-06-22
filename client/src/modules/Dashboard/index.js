@@ -22,16 +22,17 @@ const Dashboard = () => {
             console.log('activeUsers :>> ', users);
         });
         socket.on('getMessage', data => {
-            setMessages(prev => ({
-                ...prev,
-                messages: [...prev.messages, { user: data.user, message: data.message }]
-            }));
+            if (data.senderId !== user.id) {
+                setMessages(prev => ({
+                    ...prev,
+                    messages: [...prev.messages, { user: data.user, message: data.message }]
+                }));
+            }
         });
     }
-}, [socket]);
+}, [socket, user.id]);
 
-
-  useEffect(() => {
+useEffect(() => {
     messageRef?.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages?.messages])
 
@@ -122,8 +123,6 @@ const Dashboard = () => {
         messages: [...prev.messages, { user: { id: user?.id }, message }]
     }));
 };
-
-
 
 
 
