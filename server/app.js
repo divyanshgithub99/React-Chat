@@ -42,6 +42,9 @@ io.on('connection', socket => {
         const sender = users.find(user => user.userId === senderId);
         const user = await Users.findById(senderId);
         console.log('sender :>> ', sender, receiver);
+        const newMessage = new Messages({ conversationId, senderId, message });
+        await newMessage.save();
+    
         if (receiver) {
             io.to(receiver.socketId).to(sender.socketId).emit('getMessage', {
                 senderId,
@@ -50,16 +53,18 @@ io.on('connection', socket => {
                 receiverId,
                 user: { id: user._id, fullName: user.fullName, email: user.email }
             });
-            }else {
-                io.to(sender.socketId).emit('getMessage', {
-                    senderId,
-                    message,
-                    conversationId,
-                    receiverId,
-                    user: { id: user._id, fullName: user.fullName, email: user.email }
-                });
-            }
-        });
+        } else {
+            io.to(sender.socketId).emit('getMessage', {
+                senderId,
+                message,
+                conversationId,
+                receiverId,
+                user: { id: user._id, fullName: user.fullName, email: user.email }
+            });
+        }
+    });
+    
+    
 
     socket.on('disconnect', () => {
         users = users.filter(user => user.socketId !== socket.id);
@@ -139,13 +144,21 @@ app.post('/api/login', async (req, res, next) => {
 app.post('/api/conversation', async (req, res) => {
     try {
         const { senderId, receiverId } = req.body;
-        const newCoversation = new Conversations({ members: [senderId, receiverId] });
-        await newCoversation.save();
-        res.status(200).send('Conversation created successfully');
+        const existingConversation = await Conversations.findOne({ members: { $all: [senderId, receiverId] } });
+
+        if (existingConversation) {
+            return res.status(200).json(existingConversation); // Return the existing conversation
+        } else {
+            const newConversation = new Conversations({ members: [senderId, receiverId] });
+            await newConversation.save();
+            return res.status(200).json(newConversation); // Return the new conversation
+        }
     } catch (error) {
-        console.log(error, 'Error')
+        console.log(error, 'Error');
+        res.status(500).send('Server error');
     }
-})
+});
+
 
 app.get('/api/conversations/:userId', async (req, res) => {
     try {
@@ -165,23 +178,34 @@ app.get('/api/conversations/:userId', async (req, res) => {
 app.post('/api/message', async (req, res) => {
     try {
         const { conversationId, senderId, message, receiverId = '' } = req.body;
-        if (!senderId || !message) return res.status(400).send('Please fill all required fields')
+        if (!senderId || !message) return res.status(400).send('Please fill all required fields');
+        
+        let convId = conversationId;
+        
         if (conversationId === 'new' && receiverId) {
-            const newCoversation = new Conversations({ members: [senderId, receiverId] });
-            await newCoversation.save();
-            const newMessage = new Messages({ conversationId: newCoversation._id, senderId, message });
-            await newMessage.save();
-            return res.status(200).send('Message sent successfully');
-        } else if (!conversationId && !receiverId) {
-            return res.status(400).send('Please fill all required fields')
+            let conversation = await Conversations.findOne({ members: { $all: [senderId, receiverId] } });
+            if (!conversation) {
+                conversation = new Conversations({ members: [senderId, receiverId] });
+                await conversation.save();
+            }
+            convId = conversation._id;
         }
-        const newMessage = new Messages({ conversationId, senderId, message });
+
+        if (!convId) {
+            return res.status(400).send('Please fill all required fields');
+        }
+
+        const newMessage = new Messages({ conversationId: convId, senderId, message });
         await newMessage.save();
+        
         res.status(200).send('Message sent successfully');
     } catch (error) {
-        console.log(error, 'Error')
+        console.log(error, 'Error');
+        res.status(500).send('Server error');
     }
-})
+});
+
+
 
 app.get('/api/message/:conversationId', async (req, res) => {
     try {

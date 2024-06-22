@@ -16,17 +16,20 @@ const Dashboard = () => {
   }, [])
 
   useEffect(() => {
-    socket?.emit('addUser', user?.id);
-    socket?.on('getUsers', users => {
-      console.log('activeUsers :>> ', users);
-    })
-    socket?.on('getMessage', data => {
-      setMessages(prev => ({
-        ...prev,
-        messages: [...prev.messages, { user: data.user, message: data.message }]
-      }))
-    })
-  }, [socket])
+    if (socket) {
+        socket.emit('addUser', user?.id);
+        socket.on('getUsers', users => {
+            console.log('activeUsers :>> ', users);
+        });
+        socket.on('getMessage', data => {
+            setMessages(prev => ({
+                ...prev,
+                messages: [...prev.messages, { user: data.user, message: data.message }]
+            }));
+        });
+    }
+}, [socket]);
+
 
   useEffect(() => {
     messageRef?.current?.scrollIntoView({ behavior: 'smooth' })
@@ -76,48 +79,52 @@ const Dashboard = () => {
   }
 
   const sendMessage = async (e) => {
-    setMessage('')
-    if (!messages?.conversationId && messages?.receiver?.receiverId) {
-        // Check if a conversation already exists
-        const existingConversation = await fetch(`http://localhost:8080/api/conversation?senderId=${user?.id}&receiverId=${messages?.receiver?.receiverId}`);
-        const existingConversationData = await existingConversation.json();
-        if (existingConversationData) {
-            setMessages({ messages: existingConversationData, receiver: messages?.receiver, conversationId: existingConversationData[0].conversationId });
-        } else {
-            // If no conversation exists, create a new one
-            const newConversation = await fetch(`http://localhost:8080/api/conversation`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    senderId: user?.id,
-                    receiverId: messages?.receiver?.receiverId
-                })
-            });
-            const newConversationData = await newConversation.json();
-            setMessages({ messages: [], receiver: messages?.receiver, conversationId: newConversationData.conversationId });
-        }
+    e.preventDefault(); // Prevent the default form submission behavior
+
+    // Check if there is a message to send
+    if (!message.trim()) {
+        return;
     }
+
+    setMessage(''); // Clear the message input field
+
+    let conversationId = messages?.conversationId;
+
+    if (!conversationId && messages?.receiver?.receiverId) {
+        const res = await fetch(`http://localhost:8080/api/conversation`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                senderId: user?.id,
+                receiverId: messages?.receiver?.receiverId
+            })
+        });
+        const resData = await res.json();
+        conversationId = resData._id;
+        setMessages(prev => ({
+            ...prev,
+            conversationId
+        }));
+    }
+
     socket?.emit('sendMessage', {
         senderId: user?.id,
         receiverId: messages?.receiver?.receiverId,
         message,
-        conversationId: messages?.conversationId
+        conversationId
     });
-    const res = await fetch(`http://localhost:8080/api/message`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            conversationId: messages?.conversationId,
-            senderId: user?.id,
-            message,
-            receiverId: messages?.receiver?.receiverId
-        })
-    });
-}
+
+    // Update the messages state to include the sender's message
+    setMessages(prev => ({
+        ...prev,
+        messages: [...prev.messages, { user: { id: user?.id }, message }]
+    }));
+};
+
+
+
 
 
 return (
@@ -182,7 +189,8 @@ return (
         messages?.receiver?.fullName &&
         <div className='p-4 w-full flex items-center'>
           <input placeholder='Type a message...' value={message} onChange={(e) => setMessage(e.target.value)} className='w-3/4 p-2 border border-gray-300 rounded-lg focus:outline-none' />
-          <button className={`ml-4 p-2 bg-gray-300 rounded-full ${!message && 'pointer-events-none'}`} onClick={() => sendMessage()}>Send</button>
+          <button className={`ml-4 p-2 bg-gray-300 rounded-full ${!message && 'pointer-events-none'}`} onClick={(e) => sendMessage(e)}>Send</button>
+
         </div>
       }
     </div>
