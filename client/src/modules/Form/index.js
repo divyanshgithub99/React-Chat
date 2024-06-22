@@ -25,10 +25,17 @@ const Form = ({
             },
             body: JSON.stringify(data)
         });
-
-        if(res.status === 400) {
-            alert('Invalid credentials');
-        } else {
+console.log(res,"res...")
+        if(res.url.endsWith('/api/register') && res.status === 400) {
+            alert('Something went wrong or Email already existed!');
+        }
+        if(res.url.endsWith('/api/login') && res.status === 400) {
+            alert('Invalid!');
+        }
+        if (res.url.endsWith('/api/register') && res.status===200 ) {
+            alert("User Created!");
+        }
+        else {
             const resData = await res.json();
             if(resData.token) {
                 localStorage.setItem('user:token', resData.token);
